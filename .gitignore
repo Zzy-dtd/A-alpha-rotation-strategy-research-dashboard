@@ -6,5 +6,4 @@
 .DS_Store
 .pytest_cache/
 
-inputs/*.csv
 inputs/*.parquet
