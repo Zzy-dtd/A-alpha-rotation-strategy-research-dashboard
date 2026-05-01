@@ -24,7 +24,7 @@ from alpha_rotation.reporting import (
 
 
 DEFAULT_START = "2014-01-01"
-DEFAULT_UNIVERSE_PATH = "inputs/sp500_universe_snapshots.csv"
+DEFAULT_UNIVERSE_PATH = "inputs/sp500_historical_constituents_semiannual_2014_2026.csv"
 DEFAULT_BENCHMARK = "^GSPC"
 
 
