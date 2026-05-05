@@ -19,6 +19,26 @@ ALLOWED_UNARY_OPS = {
 }
 
 
+def _require_series(value, function_name: str) -> pd.Series:
+    if isinstance(value, pd.Series):
+        return value.astype(float)
+    raise ValueError(f"{function_name} expects a column expression as its first argument.")
+
+
+def _require_window(value, function_name: str) -> int:
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{function_name} expects a positive integer window.")
+    return value
+
+
+def _groupby_ticker(panel: pd.DataFrame, series: pd.Series):
+    if "ticker" not in panel.columns:
+        raise ValueError("Time-series functions require a 'ticker' column in the data.")
+    return series.groupby(panel["ticker"], sort=False)
+
+
 @dataclass(frozen=True)
 class CustomFactorValidationResult:
     name: str
@@ -45,6 +65,56 @@ def evaluate_custom_factor_formula(
     expression = ast.parse(formula, mode="eval")
     allowed = set(allowed_columns)
 
+    def _call_function(name: str, args: list):
+        if name == "delay":
+            if len(args) != 2:
+                raise ValueError("delay expects exactly 2 arguments: delay(series, n)")
+            series = _require_series(args[0], "delay")
+            periods = _require_window(args[1], "delay")
+            return _groupby_ticker(panel, series).shift(periods)
+        if name == "rolling_mean":
+            if len(args) != 2:
+                raise ValueError("rolling_mean expects exactly 2 arguments: rolling_mean(series, n)")
+            series = _require_series(args[0], "rolling_mean")
+            window = _require_window(args[1], "rolling_mean")
+            return (
+                _groupby_ticker(panel, series)
+                .rolling(window=window, min_periods=window)
+                .mean()
+                .reset_index(level=0, drop=True)
+            )
+        if name == "rolling_sum":
+            if len(args) != 2:
+                raise ValueError("rolling_sum expects exactly 2 arguments: rolling_sum(series, n)")
+            series = _require_series(args[0], "rolling_sum")
+            window = _require_window(args[1], "rolling_sum")
+            return (
+                _groupby_ticker(panel, series)
+                .rolling(window=window, min_periods=window)
+                .sum()
+                .reset_index(level=0, drop=True)
+            )
+        if name == "rolling_std":
+            if len(args) != 2:
+                raise ValueError("rolling_std expects exactly 2 arguments: rolling_std(series, n)")
+            series = _require_series(args[0], "rolling_std")
+            window = _require_window(args[1], "rolling_std")
+            return (
+                _groupby_ticker(panel, series)
+                .rolling(window=window, min_periods=window)
+                .std()
+                .reset_index(level=0, drop=True)
+            )
+        if name == "pct_change":
+            if len(args) != 2:
+                raise ValueError("pct_change expects exactly 2 arguments: pct_change(series, n)")
+            series = _require_series(args[0], "pct_change")
+            periods = _require_window(args[1], "pct_change")
+            return _groupby_ticker(panel, series).pct_change(periods)
+        raise ValueError(
+            "Unsupported function. Allowed functions are: delay, rolling_mean, rolling_sum, rolling_std, pct_change."
+        )
+
     def _eval(node):
         if isinstance(node, ast.Expression):
             return _eval(node.body)
@@ -58,7 +128,12 @@ def evaluate_custom_factor_formula(
             return ALLOWED_BINARY_OPS[type(node.op)](_eval(node.left), _eval(node.right))
         if isinstance(node, ast.UnaryOp) and type(node.op) in ALLOWED_UNARY_OPS:
             return ALLOWED_UNARY_OPS[type(node.op)](_eval(node.operand))
-        raise ValueError("Formula contains unsupported syntax. Only +, -, *, /, parentheses, and column names are allowed.")
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            return _call_function(node.func.id, [_eval(arg) for arg in node.args])
+        raise ValueError(
+            "Formula contains unsupported syntax. Allowed syntax includes column names, +, -, *, /, parentheses, "
+            "and the functions delay, rolling_mean, rolling_sum, rolling_std, pct_change."
+        )
 
     result = _eval(expression)
     if not isinstance(result, pd.Series):

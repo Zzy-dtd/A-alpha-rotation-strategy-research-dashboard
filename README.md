@@ -140,9 +140,47 @@ Rules:
   - numbers
   - `+`, `-`, `*`, `/`
   - parentheses
+  - supported time-series functions
 - arbitrary Python code is not allowed
 
 If your uploaded data includes extra columns, those columns can also be used in custom formulas.
+
+### Supported Time-Series Functions
+
+The dashboard custom-factor engine now supports these ticker-aware functions:
+
+- `delay(series, n)`
+- `rolling_mean(series, n)`
+- `rolling_sum(series, n)`
+- `rolling_std(series, n)`
+- `pct_change(series, n)`
+
+These functions are computed **within each ticker**, ordered by date.
+
+Examples:
+
+```text
+spread = Close - Open
+week_spread = Close - delay(Close, 5)
+week_return = pct_change(Close, 5)
+week_avg_range = rolling_mean(High - Low, 5)
+vol_adjusted_move = (Close - delay(Close, 1)) / rolling_std(Close, 20)
+```
+
+### Practical Guidelines
+
+Use the dashboard formula box for:
+
+- simple arithmetic combinations of available columns
+- lagged features
+- rolling-window features
+- time-series momentum or reversal transforms built from available columns
+
+You should still upload precomputed columns when:
+
+- the feature depends on data not present in the dashboard input file
+- the feature requires more advanced logic than the supported functions
+- you want to reuse a research feature prepared elsewhere
 
 ## Diagnostics
 

@@ -185,7 +185,7 @@ default_custom_text = st.session_state.get(
     "custom_spread = Close - Open\ncustom_range = High - Low",
 )
 custom_factor_text = st.text_area(
-    "Custom factors (one per line: name = formula)",
+    "Custom factors (one per line: name = formula). Supported functions: delay, rolling_mean, rolling_sum, rolling_std, pct_change",
     value=default_custom_text,
     height=110,
 )
