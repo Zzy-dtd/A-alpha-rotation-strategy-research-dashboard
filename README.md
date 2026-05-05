@@ -2,6 +2,8 @@
 
 Local research dashboard for discovering alphas, reviewing factor diagnostics, and running long-only or long/short backtests on equity universes driven by dated snapshot files.
 
+![Alpha Research Dashboard](./docs/images/dashboard.png)
+
 The app is built on top of the `alpha_rotation` package and exposes a Streamlit interface for:
 
 - loading universe snapshots and market data
